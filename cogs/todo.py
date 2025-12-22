@@ -2,12 +2,19 @@ import discord
 from discord.ext import commands, tasks
 from datetime import datetime
 import random
+import json 
+import os 
+
 
 
 class Todo(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.todos = []
+        self.filename = "saved_tasks.json" # Dateiname für gespeicherte Aufgaben
+        
+        # Lade gespeicherte Aufgaben beim Start
+        self.load_tasks()
         self.check_deadlines.start()
 
     # --- GIF LISTEN ---
@@ -37,7 +44,35 @@ class Todo(commands.Cog):
 
     def cog_unload(self):
         self.check_deadlines.cancel()
-
+        
+    # --- SPEICHERN & LADEN ---
+    def save_tasks(self):
+        data_to_save = []
+        for task in self.todos:
+            entry = task.copy()
+            entry["deadline"] = task["deadline"].isoformat()  # In ISO-Format konvertieren
+            data_to_save.append(entry)
+        
+        with open(self.filename, 'w') as f:
+            json.dump(data_to_save, f, indent=4)
+            
+    def load_tasks(self):
+        if not os.path.exists(self.filename):
+            return #Datei existiert nicht, nichts zu laden
+        
+        try:
+            with open(self.filename, 'r') as f:
+                data = json.load(f)
+                
+            self.todos = []
+            for entry in data:
+                entry["deadline"] = datetime.fromisoformat(entry["deadline"])
+                self.todos.append(entry)
+            print(f"📂 {len(self.todos)} Aufgaben geladen.")
+        except Exception as e:
+            print(f"❌ Fehler beim Laden: {e}")
+            
+            
     # --- COMMAND: Add ---
 
     @commands.command()
@@ -65,6 +100,8 @@ class Todo(commands.Cog):
             }
 
             self.todos.append(task_entry)
+            self.save_tasks()  # Aufgaben speichern
+            
             prio_emoji = "🔥" * priority
             await ctx.send(f"✅ Aufgabe **'{task_name}'** gespeichert! (Prio {priority} {prio_emoji})")
 
@@ -74,8 +111,8 @@ class Todo(commands.Cog):
     # --- COMMAND: Done ---
     @commands.command()
     async def done(self, ctx, index: int):
-        """Löscht eine Aufgabe anhand ihrer Nummer in der Liste."""
         user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
+        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
 
         # Gleiche Sortierung wie bei 'list', damit die Nummer stimmt
         user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
@@ -87,6 +124,7 @@ class Todo(commands.Cog):
         # Aufgabe finden und aus der großen Liste löschen
         task_to_remove = user_tasks[index - 1]
         self.todos.remove(task_to_remove)
+        self.save_tasks()  # Aufgaben speichern
 
         await ctx.send(f"🗑️ Aufgabe **'{task_to_remove['task']}'** wurde erledigt/gelöscht.")
 
@@ -136,7 +174,7 @@ class Todo(commands.Cog):
 # --- COMMAND: Motivation ---
     @commands.command(aliases=["moti"]) # Reagiert auf !motivation und !moti
     async def motivation(self, ctx):
-        """Sendet einen zufälligen Motivationsspruch."""
+        
         
         # Eine Liste mit Sprüchen (kannst du beliebig erweitern)
         quotes = [
@@ -205,6 +243,7 @@ class Todo(commands.Cog):
     @tasks.loop(seconds=10)
     async def check_deadlines(self):
         now = datetime.now()
+        data_changer = False # Flag, um zu prüfen, ob wir speichern müssen
 
         for task in self.todos:
             time_left = task["deadline"] - now
@@ -245,6 +284,11 @@ class Todo(commands.Cog):
                                 await channel.send(f"⏰ **Erinnerung:** Noch {hours} Stunden bis **'{task['task']}'**.")
 
                         task["reminders_sent"].append(milestone)
+                        data_changed = True
+                        
+                        
+        if data_changed:
+            self.save_tasks()  # Änderungen speichern
 
     @check_deadlines.before_loop
     async def before_check(self):
