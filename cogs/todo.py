@@ -135,7 +135,7 @@ class Todo(commands.Cog):
         await ctx.send(embed=embed)
 
     # --- HINTERGRUND LOGIK ---
-    @tasks.loop(seconds=60)
+    @tasks.loop(seconds=10)
     async def check_deadlines(self):
         now = datetime.now()
 
