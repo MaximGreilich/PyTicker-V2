@@ -143,12 +143,63 @@ class Todo(commands.Cog):
             "🌟 Der beste Weg, die Zukunft vorherzusagen, ist, sie zu erschaffen.",
             "“Sometimes life is like a dark tunnel. You can’t always see the light at the end of the tunnel, but if you just keep moving…you will come to a better place.” ,     -Uncle Iroh",
             "“Ihr müsst es umsetzen…durch Theorien ist noch nie jemand ans Ziel gekommen” - Arda Saatçi",
+            "“This shit takes time” -Will Tenny" , 
+            
         ]
 
         # Zufälligen Spruch auswählen
         spruch = random.choice(quotes)
       
         await ctx.send(f"💪 **Motivation für dich:**\n\n_{spruch}_")
+        
+    # --- COMMAND: Zeit prüfen ---
+    @commands.command(aliases=["check", "zeit"]) 
+    async def time(self, ctx, index: int):
+        
+        # 1. Aufgaben holen und genau so sortieren wie bei !list
+        user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
+        
+        # WICHTIG: Die Sortierung muss exakt gleich sein wie in 'list', 
+        # damit "Aufgabe 1" hier auch wirklich "Aufgabe 1" ist.
+        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
+
+        if index < 1 or index > len(user_tasks):
+            await ctx.send("❌ Diese Nummer gibt es nicht. Schau mit `!list` nach.")
+            return
+
+        # 2. Aufgabe auswählen
+        task = user_tasks[index - 1]
+        now = datetime.now()
+        diff = task["deadline"] - now
+        
+        # 3. Zeit berechnen
+        total_seconds = int(diff.total_seconds())
+        
+        if total_seconds < 0:
+            # Wenn die Zeit abgelaufen ist
+            past_s = abs(total_seconds)
+            days = past_s // 86400
+            hours = (past_s % 86400) // 3600
+            minutes = (past_s % 3600) // 60
+            
+            msg = f"🔴 Die Deadline für **'{task['task']}'** ist vorüber!\n"
+            msg += f"Seit: **{days} Tagen, {hours} Stunden und {minutes} Minuten**."
+            await ctx.send(msg)
+        
+        else:
+            # Wenn noch Zeit ist
+            days = total_seconds // 86400
+            hours = (total_seconds % 86400) // 3600
+            minutes = (total_seconds % 3600) // 60
+            
+            prio_emoji = "🔥" * task["priority"]
+            
+            embed = discord.Embed(title=f"⏳ Zeit-Check: {task['task']}", color=discord.Color.green())
+            embed.add_field(name="Verbleibende Zeit", value=f"**{days}** Tage, **{hours}** Stunden, **{minutes}** Minuten", inline=False)
+            embed.add_field(name="Deadline", value=task["deadline"].strftime("%d.%m.%Y um %H:%M Uhr"), inline=True)
+            embed.add_field(name="Wichtigkeit", value=f"{task['priority']} {prio_emoji}", inline=True)
+            
+            await ctx.send(embed=embed)
       
     # --- HINTERGRUND LOGIK ---
     @tasks.loop(seconds=10)
