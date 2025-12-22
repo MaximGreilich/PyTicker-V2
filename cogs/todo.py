@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands, tasks
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import json
 import os
@@ -182,11 +182,11 @@ class Todo(commands.Cog):
             "“Ihr müsst es umsetzen…durch Theorien ist noch nie jemand ans Ziel gekommen” - Arda Saatçi",
             "“This shit takes time” -Will Tenny",
             "Storms make trees take deeper roots.",
-            "If you quit now, you'll end up right back where you first began. And when you first began, you were desperate to be where you are right now.", 
+            "If you quit now, you'll end up right back where you first began. And when you first began, you were desperate to be where you are right now.",
             "One day or Day One. You decide.",
-            "Rome wasn't built in a day.", 
+            "Rome wasn't built in a day.",
             "Hard work beats talent when talent doesn't work hard."
-            
+
 
         ]
 
@@ -194,6 +194,40 @@ class Todo(commands.Cog):
         spruch = random.choice(quotes)
 
         await ctx.send(f"💪 **Motivation für dich:**\n\n_{spruch}_")
+        
+    # --- COMMAND: Snooze (Aufschieben) ---
+    @commands.command(aliases=["snooze", "later", "verschieben"])
+    async def delay(self, ctx, index: int, minutes: int):
+        
+        # 1. Liste holen und sortieren (damit der Index stimmt)
+        user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
+        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
+
+        if index < 1 or index > len(user_tasks):
+            await ctx.send("❌ Diese Nummer gibt es nicht.")
+            return
+
+        # 2. Aufgabe bearbeiten
+        task = user_tasks[index - 1]
+        
+        # Alte Zeit merken
+        old_time = task["deadline"]
+        
+        # Neue Zeit berechnen (Alte Zeit + Minuten)
+        new_time = old_time + timedelta(minutes=minutes)
+        task["deadline"] = new_time
+        
+        # WICHTIG: Die Liste "reminders_sent" leeren, damit er nochmal warnt!
+        task["reminders_sent"] = []
+        
+        # 3. Speichern
+        self.save_tasks()
+        
+        # 4. Feedback geben
+        fmt_old = old_time.strftime("%H:%M")
+        fmt_new = new_time.strftime("%H:%M")
+        
+        await ctx.send(f"💤 Aufgabe **'{task['task']}'** verschoben.\nVon {fmt_old} Uhr ➡️ auf **{fmt_new} Uhr** (+{minutes} min).")
 
     # --- COMMAND: Zeit prüfen ---
     @commands.command(aliases=["check", "zeit"])
@@ -247,6 +281,93 @@ class Todo(commands.Cog):
                 name="Wichtigkeit", value=f"{task['priority']} {prio_emoji}", inline=True)
 
             await ctx.send(embed=embed)
+            
+        # --- COMMAND: Hilfe / Anleitung ---
+    @commands.command(aliases=["hilfe", "guide", "commands"])
+    async def manual(self, ctx):
+        """Zeigt eine schöne Übersicht aller Befehle."""
+        
+        embed = discord.Embed(title="🤖 Dein Bot-Handbuch", description="Hier sind alle Befehle, die ich verstehe:", color=discord.Color.gold())
+        
+        # 1. Die Wichtigsten
+        embed.add_field(
+            name="📝 Aufgaben verwalten", 
+            value=(
+                "`!add \"Name\" YYYY-MM-DD HH:MM [1-5]`\n"
+                "Erstellt eine Aufgabe. Wichtigkeit (1-5) ist optional.\n"
+                "*Bsp: !add \"Mathe\" 2025-05-20 14:00 5*\n\n"
+                "`!list`\n"
+                "Zeigt alle deine offenen Aufgaben sortiert nach Wichtigkeit.\n\n"
+                "`!done <Nummer>`\n"
+                "Markiert die Aufgabe als erledigt und löscht sie.\n"
+                "*Bsp: !done 1*"
+            ),
+            inline=False
+        )
+
+        # 2. Zeit & Planung
+        embed.add_field(
+            name="⏰ Zeit & Planung",
+            value=(
+                "`!time <Nummer>` (oder `!check`)\n"
+                "Zeigt exakt an, wie viel Zeit für Aufgabe X noch bleibt.\n\n"
+                "`!delay <Nummer> <Minuten>` (oder `!snooze`)\n"
+                "Verschiebt die Deadline um X Minuten nach hinten.\n"
+                "*Bsp: !snooze 1 30* (30 Min später)"
+            ),
+            inline=False
+        )
+
+        # 3. Extras
+        embed.add_field(
+            name="✨ Sonstiges",
+            value=(
+                "`!moti` (oder `!motivation`)\n"
+                "Gibt dir einen zufälligen Motivationsspruch.\n\n"
+                "`!hilfe`\n"
+                "Zeigt diese Nachricht an."
+            ),
+            inline=False
+        )
+        
+        embed.set_footer(text="Tipp: Aufgaben werden automatisch gespeichert! 💾")
+        
+        await ctx.send(embed=embed)
+
+    # --- COMMAND: Snooze (Aufschieben) ---
+    @commands.command(aliases=["snooze", "later", "verschieben"])
+    async def delay(self, ctx, index: int, minutes: int):
+        """Verschiebt die Deadline einer Aufgabe um X Minuten."""
+
+        # 1. Liste holen und sortieren (damit der Index stimmt)
+        user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
+        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
+
+        if index < 1 or index > len(user_tasks):
+            await ctx.send("❌ Diese Nummer gibt es nicht.")
+            return
+
+        # 2. Aufgabe bearbeiten
+        task = user_tasks[index - 1]
+
+        # Alte Zeit merken
+        old_time = task["deadline"]
+
+        # Neue Zeit berechnen (Alte Zeit + Minuten)
+        new_time = old_time + timedelta(minutes=minutes)
+        task["deadline"] = new_time
+
+        # WICHTIG: Die Liste "reminders_sent" leeren, damit er nochmal warnt!
+        task["reminders_sent"] = []
+
+        # 3. Speichern
+        self.save_tasks()
+
+        # 4. Feedback geben
+        fmt_old = old_time.strftime("%H:%M")
+        fmt_new = new_time.strftime("%H:%M")
+
+        await ctx.send(f"💤 Aufgabe **'{task['task']}'** verschoben.\nVon {fmt_old} Uhr ➡️ auf **{fmt_new} Uhr** (+{minutes} min).")
 
     # --- HINTERGRUND LOGIK ---
     @tasks.loop(seconds=10)
