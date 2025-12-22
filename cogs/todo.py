@@ -133,7 +133,23 @@ class Todo(commands.Cog):
                 name=f"{i}. {task['task']}", value=value_text, inline=False)
 
         await ctx.send(embed=embed)
+# --- COMMAND: Motivation ---
+    @commands.command(aliases=["moti"]) # Reagiert auf !motivation und !moti
+    async def motivation(self, ctx):
+        """Sendet einen zufälligen Motivationsspruch."""
+        
+        # Eine Liste mit Sprüchen (kannst du beliebig erweitern)
+        quotes = [
+            "🌟 Der beste Weg, die Zukunft vorherzusagen, ist, sie zu erschaffen.",
+            "“Sometimes life is like a dark tunnel. You can’t always see the light at the end of the tunnel, but if you just keep moving…you will come to a better place.” ,     -Uncle Iroh",
+            "“Ihr müsst es umsetzen…durch Theorien ist noch nie jemand ans Ziel gekommen” - Arda Saatçi",
+        ]
 
+        # Zufälligen Spruch auswählen
+        spruch = random.choice(quotes)
+      
+        await ctx.send(f"💪 **Motivation für dich:**\n\n_{spruch}_")
+      
     # --- HINTERGRUND LOGIK ---
     @tasks.loop(seconds=10)
     async def check_deadlines(self):
