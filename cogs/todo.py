@@ -300,7 +300,10 @@ class Todo(commands.Cog):
                 "Zeigt alle deine offenen Aufgaben sortiert nach Wichtigkeit.\n\n"
                 "`!done <Nummer>`\n"
                 "Markiert die Aufgabe als erledigt und löscht sie.\n"
-                "*Bsp: !done 1*"
+                "*Bsp: !done 1*\n\n"
+                "`!remove <Nummer>`\n"
+                "Löscht die Aufgabe ohne sie als erledigt zu markieren.\n\n"
+                "*Bsp: !remove 2*"
             ),
             inline=False
         )
@@ -333,6 +336,25 @@ class Todo(commands.Cog):
         embed.set_footer(text="Tipp: Aufgaben werden automatisch gespeichert! 💾")
         
         await ctx.send(embed=embed)
+        
+
+    # --- COMMAND: Delete (Löschen) ---
+    @commands.command(aliases=["remove", "löschen"])
+    async def delete(self, ctx, index: int):
+        
+        user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
+        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
+
+        if index < 1 or index > len(user_tasks):
+            await ctx.send("❌ Ungültige Nummer. Schau erst mit `!list` nach.")
+            return
+
+        # Aufgabe finden und aus der großen Liste löschen
+        task_to_remove = user_tasks[index - 1]
+        self.todos.remove(task_to_remove)
+        self.save_tasks()  # Aufgaben speichern
+
+        await ctx.send(f"🗑️ Aufgabe **'{task_to_remove['task']}'** wurde gelöscht.")
 
     # --- COMMAND: Snooze (Aufschieben) ---
     @commands.command(aliases=["snooze", "later", "verschieben"])
