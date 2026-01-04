@@ -333,14 +333,14 @@ class Todo(commands.Cog):
             await ctx.send(embed=embed)
             
         # --- COMMAND: Hilfe / Anleitung ---
-    @commands.command(aliases=["help", "guide", "commands"])
+    @commands.command(aliases=["guide", "commands"])
     async def hilfe(self, ctx):
         """Zeigt die Befehlsübersicht an."""
         
         beschreibung = (
             "**📝 Neue Aufgabe erstellen**\n"
-            "Nutze `!neu` (oder `!add`), den Titel in Anführungszeichen und das Datum.\n"
-            "> Bsp: `!neu \"Mathe lernen\" 20.05.2025 14:00`\n\n"
+            "Nutze `!neu`, Titel in Anführungszeichen, Datum und optional die Wichtigkeit (1-5).\n"
+            "> Bsp: `!neu \"Mathe\" 20.05.2025 14:00 5` (5 = sehr wichtig)\n\n"
             
             "**📋 Liste anzeigen**\n"
             "Mit `!liste` (oder `!list`) siehst du alle offenen Aufgaben und wie viel Zeit noch bleibt.\n\n"
@@ -478,8 +478,8 @@ class Todo(commands.Cog):
         
         beschreibung = (
             "**📝 Neue Aufgabe erstellen**\n"
-            "Nutze `!neu` (oder `!add`), den Titel in Anführungszeichen und das Datum.\n"
-            "> Bsp: `!neu \"Mathe lernen\" 20.05.2025 14:00`\n\n"
+            "Nutze `!neu`, Titel in Anführungszeichen, Datum und optional die Wichtigkeit (1-5).\n"
+            "> Bsp: `!neu \"Mathe\" 20.05.2025 14:00 5` (5 = sehr wichtig)\n\n"
             
             "**📋 Liste anzeigen**\n"
             "Mit `!liste` (oder `!list`) siehst du alle offenen Aufgaben und wie viel Zeit noch bleibt.\n\n"
