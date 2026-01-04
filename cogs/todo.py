@@ -530,6 +530,17 @@ class Todo(commands.Cog):
             ),
             inline=False
         )
+        # Abschnitt 3: Sonstiges
+        embed.add_field(
+            name="📌 Sonstiges",
+            value=(
+                "`!motivation`\n"
+                "Gibt dir einen Motivationsspruch, wenn du ihn brauchst! 💪\n\n"
+                "`!hilfe` (Alias: `!help`)\n"
+                "Zeigt diese Liste erneut an."
+            ),
+            inline=False
+        )
 
         # Embed senden
         await channel.send(embed=embed)
