@@ -75,8 +75,7 @@ class Todo(commands.Cog):
     # --- COMMAND: Add ---
 
     @commands.command(aliases=["add"])
-    async def neu(self, ctx, task_name: str, date_str: str, time_str: str, priority: int = 3):
-        """Format: !add "Name" YYYY-MM-DD HH:MM 1-5"""
+    async def neu(self, ctx, task_name: str, date_str: str, time_str: str, priority: int = 3, neue_id: int = None):
         if priority < 1 or priority > 5:
             await ctx.send("❌ Wichtigkeit muss zwischen 1 und 5 liegen.")
             return
@@ -99,13 +98,20 @@ class Todo(commands.Cog):
             }
 
             self.todos.append(task_entry)
+            
+            #ID generieren
+            neue_id = len(self.todos)
+            task_entry["id"] = neue_id
+            
+           
             self.save_tasks()  # Aufgaben speichern
+            
 
             prio_emoji = "🔥" * priority
-            await ctx.send(f"✅ Aufgabe **'{task_name}'** gespeichert! (Prio {priority} {prio_emoji})")
+            await ctx.send(f"✅ Aufgabe **'{task_name}'** gespeichert! (Prio {priority} {prio_emoji}) (ID: {neue_id})")
 
         except ValueError:
-            await ctx.send("❌ Formatfehler! Nutze: `!add \"Name\" YYYY-MM-DD HH:MM 1-5`")
+            await ctx.send("❌ Formatfehler! Nutze: `!add \"Name\" DD.MM.YYYY HH:MM 1-5`")
 
     # --- COMMAND: Done ---
     @commands.command(aliases=["done"])
@@ -384,23 +390,28 @@ class Todo(commands.Cog):
         
 
     # --- COMMAND: Delete (Löschen) ---
-    @commands.command(aliases=["remove", "delete"])
-    async def löschen(self, ctx, index: int):
-        
-        user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
-        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
+    @commands.command(aliases=["del", "remove"])
+    async def löschen(self, ctx, nummer: int):
+        # 1. Liste genau so sortieren wie beim !liste Befehl
+        # Hier im Beispiel: Erst nach Zeit (deadline), dann nach Prio
+        sortierte_liste = sorted(
+            self.todos, 
+            key=lambda t: t["deadline"]
+        )
 
-        if index < 1 or index > len(user_tasks):
-            await ctx.send("❌ Ungültige Nummer. Schau erst mit `!list` nach.")
-            return
-
-        # Aufgabe finden und aus der großen Liste löschen
-        task_to_remove = user_tasks[index - 1]
-        self.todos.remove(task_to_remove)
-        self.save_tasks()  # Aufgaben speichern
-
-        await ctx.send(f"🗑️ Aufgabe **'{task_to_remove['task']}'** wurde gelöscht.")
-
+        # 2. Prüfen, ob die Nummer existiert
+        if 1 <= nummer <= len(sortierte_liste):
+            # Der User sieht "1", aber Python zählt ab 0 -> daher "nummer - 1"
+            zu_loeschende_aufgabe = sortierte_liste[nummer - 1]
+            
+            # 3. Das richtige Element aus der ECHTEN Liste entfernen
+            # .remove() sucht genau dieses eine Paket und löscht es, egal welche ID es hat
+            self.todos.remove(zu_loeschende_aufgabe)
+            self.save_tasks()
+            
+            await ctx.send(f"🗑️ Aufgabe **'{zu_loeschende_aufgabe['task']}'** gelöscht.")
+        else:
+            await ctx.send("❌ Diese Nummer gibt es nicht.")
     # --- HINTERGRUND LOGIK ---
     @tasks.loop(seconds=10)
     async def check_deadlines(self):
