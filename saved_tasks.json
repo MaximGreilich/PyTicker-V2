@@ -6,5 +6,21 @@
         "user_id": 401087629241745409,
         "channel_id": 1450439680968495167,
         "reminders_sent": []
+    },
+    {
+        "task": "lernen",
+        "deadline": "2026-01-04T19:40:00",
+        "priority": 3,
+        "user_id": 401087629241745409,
+        "channel_id": 1450439680968495167,
+        "reminders_sent": []
+    },
+    {
+        "task": "lernen",
+        "deadline": "2026-01-04T17:00:00",
+        "priority": 3,
+        "user_id": 401087629241745409,
+        "channel_id": 1450439680968495167,
+        "reminders_sent": []
     }
 ]

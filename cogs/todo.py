@@ -83,7 +83,7 @@ class Todo(commands.Cog):
 
         try:
             deadline_str = f"{date_str} {time_str}"
-            deadline_dt = datetime.strptime(deadline_str, "%Y-%m-%d %H:%M")
+            deadline_dt = datetime.strptime(deadline_str, "%d.%m.%Y %H:%M")
 
             # Hinweis, falls man aus Versehen eine Vergangenheit wählt
             if deadline_dt < datetime.now():
@@ -327,7 +327,7 @@ class Todo(commands.Cog):
             await ctx.send(embed=embed)
             
         # --- COMMAND: Hilfe / Anleitung ---
-    @commands.command(aliases=["help", "guide", "commands"])
+    @commands.command(aliases=["guide", "commands"])
     async def hilfe(self, ctx):
         """Zeigt eine schöne Übersicht aller Befehle."""
         
@@ -337,9 +337,9 @@ class Todo(commands.Cog):
         embed.add_field(
             name="📝 Aufgaben verwalten",
             value=(
-            "`!neu \"Titel\" <Datum> [1-5]` (Alias: `!add`)\n"
+            "`!neu \"Titel\" <TT.MM.JJJJ HH:MM> [1-5]` (Alias: `!add`)\n"
             "Erstellt eine Aufgabe. Wichtigkeit (1-5) ist optional.\n"
-            "*Bsp: `!neu \"Mathe\" 2025-05-20 14:00 5`*\n\n"
+            "*Bsp: `!neu \"Mathe\" 20.05.2025 14:00 5`*\n\n"
             "`!liste` (Alias: `!list`)\n"
             "Zeigt alle deine offenen Aufgaben sortiert nach Wichtigkeit.\n\n"
             "`!fertig <Nummer>` (Alias: `!done`)\n"
@@ -348,9 +348,9 @@ class Todo(commands.Cog):
             "`!löschen <Nummer>` (Alias: `!del`)\n"
             "Löscht die Aufgabe ohne sie als erledigt zu markieren.\n"
             "*Bsp: `!löschen 2`*"
-         ),
-            inline=False
-        )
+        ),
+        inline=False
+    )
 
         # 2. Zeit & Planung
         embed.add_field(
