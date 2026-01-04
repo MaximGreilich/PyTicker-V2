@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import random
 import json
 import os
-
+import re
 
 class Todo(commands.Cog):
     def __init__(self, bot):
@@ -170,6 +170,7 @@ class Todo(commands.Cog):
                 name=f"{i}. {task['task']}", value=value_text, inline=False)
 
         await ctx.send(embed=embed)
+        
 # --- COMMAND: Motivation ---
 
     @commands.command(aliases=["moti"])  # Reagiert auf !motivation und !moti
@@ -195,11 +196,17 @@ class Todo(commands.Cog):
 
         await ctx.send(f"💪 **Motivation für dich:**\n\n_{spruch}_")
         
-    # --- COMMAND: Snooze (Aufschieben) ---
-    @commands.command(aliases=["snooze", "later", "verschieben"])
-    async def delay(self, ctx, index: int, minutes: int):
+
+ # --- COMMAND: Smart Snooze (Umbenannt zum Testen) ---
+    @commands.command(aliases=["snooze", "delay", "verschieben"])
+    async def superdelay(self, ctx, index: int, *, time_input: str): # <--- HIER UMBENENNEN
         
-        # 1. Liste holen und sortieren (damit der Index stimmt)
+        """""
+        Verschiebt eine Deadline.
+        Beispiele: !delay 1 2h (oder 2std), !delay 1 10m, !delay 1 1d (oder 1t)
+        """
+        
+        # 1. Liste holen
         user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
         user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
 
@@ -207,27 +214,64 @@ class Todo(commands.Cog):
             await ctx.send("❌ Diese Nummer gibt es nicht.")
             return
 
-        # 2. Aufgabe bearbeiten
+        # 2. Text säubern (Kleinbuchstaben, Leerzeichen weg)
+        # Aus "2 STD" wird "2std"
+        clean_input = time_input.lower().replace(" ", "")
+
+        days = 0
+        hours = 0
+        minutes = 0
+
+        # Regex: Suche nach Zahl gefolgt von Buchstaben
+        # Wir erlauben jetzt auch 't' (Tage), 's'/'std' (Stunden)
+        matches = re.findall(r"(\d+)([a-z]+)", clean_input)
+
+        if not matches:
+            # Fallback: Wenn nur eine Zahl da steht (z.B. "30")
+            if clean_input.isdigit():
+                minutes = int(clean_input)
+            else:
+                await ctx.send(f"❌ Konnte die Zeit '{time_input}' nicht verstehen.\nVersuche: `2h`, `30m`, `1d`.")
+                return
+
+        # Werte zusammenrechnen
+        for amount, unit in matches:
+            val = int(amount)
+            
+            if unit in ['d', 't', 'tag', 'tage']:
+                days += val
+            elif unit in ['h', 's', 'std', 'stunde']:
+                hours += val
+            elif unit in ['m', 'min', 'minute']:
+                minutes += val
+            else:
+                await ctx.send(f"⚠️ Die Einheit '{unit}' kenne ich nicht (nutze d/h/m).")
+
+        # Wenn alles 0 ist (z.B. bei falscher Einheit)
+        if days == 0 and hours == 0 and minutes == 0:
+             await ctx.send("❌ Keine gültige Zeit gefunden.")
+             return
+
+        # 3. Speichern & Ändern
         task = user_tasks[index - 1]
-        
-        # Alte Zeit merken
         old_time = task["deadline"]
+        new_time = old_time + timedelta(days=days, hours=hours, minutes=minutes)
         
-        # Neue Zeit berechnen (Alte Zeit + Minuten)
-        new_time = old_time + timedelta(minutes=minutes)
         task["deadline"] = new_time
-        
-        # WICHTIG: Die Liste "reminders_sent" leeren, damit er nochmal warnt!
-        task["reminders_sent"] = []
-        
-        # 3. Speichern
+        task["reminders_sent"] = [] 
         self.save_tasks()
         
-        # 4. Feedback geben
-        fmt_old = old_time.strftime("%H:%M")
-        fmt_new = new_time.strftime("%H:%M")
+        # 4. Feedback
+        fmt_old = old_time.strftime("%d.%m. %H:%M")
+        fmt_new = new_time.strftime("%d.%m. %H:%M")
         
-        await ctx.send(f"💤 Aufgabe **'{task['task']}'** verschoben.\nVon {fmt_old} Uhr ➡️ auf **{fmt_new} Uhr** (+{minutes} min).")
+        # Text bauen
+        diff_text = []
+        if days > 0: diff_text.append(f"{days}d")
+        if hours > 0: diff_text.append(f"{hours}h")
+        if minutes > 0: diff_text.append(f"{minutes}m")
+        
+        await ctx.send(f"💤 Aufgabe **'{task['task']}'** verschoben.\nVon {fmt_old} Uhr ➡️ auf **{fmt_new} Uhr** (+{' '.join(diff_text)}).")
 
     # --- COMMAND: Zeit prüfen ---
     @commands.command(aliases=["check", "zeit"])
@@ -293,7 +337,7 @@ class Todo(commands.Cog):
         embed.add_field(
             name="📝 Aufgaben verwalten", 
             value=(
-                "`!add \"Name\" YYYY-MM-DD HH:MM [1-5]`\n"
+                "`!add \"Titel\" YYYY-MM-DD HH:MM [1-5]`\n"
                 "Erstellt eine Aufgabe. Wichtigkeit (1-5) ist optional.\n"
                 "*Bsp: !add \"Mathe\" 2025-05-20 14:00 5*\n\n"
                 "`!list`\n"
@@ -312,13 +356,14 @@ class Todo(commands.Cog):
         embed.add_field(
             name="⏰ Zeit & Planung",
             value=(
-                "`!time <Nummer>` (oder `!check`)\n"
-                "Zeigt exakt an, wie viel Zeit für Aufgabe X noch bleibt.\n\n"
-                "`!delay <Nummer> <Minuten>` (oder `!snooze`)\n"
-                "Verschiebt die Deadline um X Minuten nach hinten.\n"
-                "*Bsp: !snooze 1 30* (30 Min später)"
-            ),
-            inline=False
+            "`!time <Nummer>` (oder `!check`)\n"
+            "Zeigt exakt an, wie viel Zeit für Aufgabe X noch bleibt.\n\n"
+            "`!delay <Nummer> <Zeit>` (oder `!snooze`)\n"
+            "Verschiebt die Deadline um die angegebene Zeit.\n"
+            "Nutze: `m` (Min), `h`/`std` (Std), `d`/`t` (Tage).\n"
+            "*Bsp: `!snooze 1 2h` (2 Stunden später)*"
+        ),
+          inline=False
         )
 
         # 3. Extras
@@ -355,41 +400,6 @@ class Todo(commands.Cog):
         self.save_tasks()  # Aufgaben speichern
 
         await ctx.send(f"🗑️ Aufgabe **'{task_to_remove['task']}'** wurde gelöscht.")
-
-    # --- COMMAND: Snooze (Aufschieben) ---
-    @commands.command(aliases=["snooze", "later", "verschieben"])
-    async def delay(self, ctx, index: int, minutes: int):
-        """Verschiebt die Deadline einer Aufgabe um X Minuten."""
-
-        # 1. Liste holen und sortieren (damit der Index stimmt)
-        user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
-        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
-
-        if index < 1 or index > len(user_tasks):
-            await ctx.send("❌ Diese Nummer gibt es nicht.")
-            return
-
-        # 2. Aufgabe bearbeiten
-        task = user_tasks[index - 1]
-
-        # Alte Zeit merken
-        old_time = task["deadline"]
-
-        # Neue Zeit berechnen (Alte Zeit + Minuten)
-        new_time = old_time + timedelta(minutes=minutes)
-        task["deadline"] = new_time
-
-        # WICHTIG: Die Liste "reminders_sent" leeren, damit er nochmal warnt!
-        task["reminders_sent"] = []
-
-        # 3. Speichern
-        self.save_tasks()
-
-        # 4. Feedback geben
-        fmt_old = old_time.strftime("%H:%M")
-        fmt_new = new_time.strftime("%H:%M")
-
-        await ctx.send(f"💤 Aufgabe **'{task['task']}'** verschoben.\nVon {fmt_old} Uhr ➡️ auf **{fmt_new} Uhr** (+{minutes} min).")
 
     # --- HINTERGRUND LOGIK ---
     @tasks.loop(seconds=10)
