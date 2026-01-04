@@ -74,8 +74,8 @@ class Todo(commands.Cog):
 
     # --- COMMAND: Add ---
 
-    @commands.command()
-    async def add(self, ctx, task_name: str, date_str: str, time_str: str, priority: int = 3):
+    @commands.command(aliases=["add"])
+    async def neu(self, ctx, task_name: str, date_str: str, time_str: str, priority: int = 3):
         """Format: !add "Name" YYYY-MM-DD HH:MM 1-5"""
         if priority < 1 or priority > 5:
             await ctx.send("❌ Wichtigkeit muss zwischen 1 und 5 liegen.")
@@ -108,8 +108,8 @@ class Todo(commands.Cog):
             await ctx.send("❌ Formatfehler! Nutze: `!add \"Name\" YYYY-MM-DD HH:MM 1-5`")
 
     # --- COMMAND: Done ---
-    @commands.command()
-    async def done(self, ctx, index: int):
+    @commands.command(aliases=["done"])
+    async def fertig(self, ctx, index: int):
         user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
         user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
 
@@ -132,8 +132,8 @@ class Todo(commands.Cog):
         await ctx.send(gif_url)
 
     # --- COMMAND: List (mit Überfällig-Anzeige) ---
-    @commands.command()
-    async def list(self, ctx):
+    @commands.command(aliases=["list"])
+    async def liste(self, ctx):
         user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
 
         if not user_tasks:
@@ -198,8 +198,8 @@ class Todo(commands.Cog):
         
 
  # --- COMMAND: Smart Snooze (Umbenannt zum Testen) ---
-    @commands.command(aliases=["snooze", "delay", "verschieben"])
-    async def superdelay(self, ctx, index: int, *, time_input: str): # <--- HIER UMBENENNEN
+    @commands.command(aliases=["snooze", "delay"])
+    async def verschieben(self, ctx, index: int, *, time_input: str): # <--- HIER UMBENENNEN
         
         """""
         Verschiebt eine Deadline.
@@ -274,8 +274,8 @@ class Todo(commands.Cog):
         await ctx.send(f"💤 Aufgabe **'{task['task']}'** verschoben.\nVon {fmt_old} Uhr ➡️ auf **{fmt_new} Uhr** (+{' '.join(diff_text)}).")
 
     # --- COMMAND: Zeit prüfen ---
-    @commands.command(aliases=["check", "zeit"])
-    async def time(self, ctx, index: int):
+    @commands.command(aliases=["check", "time"])
+    async def zeit(self, ctx, index: int):
 
         # 1. Aufgaben holen und genau so sortieren wie bei !list
         user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
@@ -327,28 +327,28 @@ class Todo(commands.Cog):
             await ctx.send(embed=embed)
             
         # --- COMMAND: Hilfe / Anleitung ---
-    @commands.command(aliases=["hilfe", "guide", "commands"])
-    async def manual(self, ctx):
+    @commands.command(aliases=["help", "guide", "commands"])
+    async def hilfe(self, ctx):
         """Zeigt eine schöne Übersicht aller Befehle."""
         
         embed = discord.Embed(title="🤖 Dein Bot-Handbuch", description="Hier sind alle Befehle, die ich verstehe:", color=discord.Color.gold())
         
         # 1. Die Wichtigsten
         embed.add_field(
-            name="📝 Aufgaben verwalten", 
+            name="📝 Aufgaben verwalten",
             value=(
-                "`!add \"Titel\" YYYY-MM-DD HH:MM [1-5]`\n"
-                "Erstellt eine Aufgabe. Wichtigkeit (1-5) ist optional.\n"
-                "*Bsp: !add \"Mathe\" 2025-05-20 14:00 5*\n\n"
-                "`!list`\n"
-                "Zeigt alle deine offenen Aufgaben sortiert nach Wichtigkeit.\n\n"
-                "`!done <Nummer>`\n"
-                "Markiert die Aufgabe als erledigt und löscht sie.\n"
-                "*Bsp: !done 1*\n\n"
-                "`!remove <Nummer>`\n"
-                "Löscht die Aufgabe ohne sie als erledigt zu markieren.\n\n"
-                "*Bsp: !remove 2*"
-            ),
+            "`!neu \"Titel\" <Datum> [1-5]` (Alias: `!add`)\n"
+            "Erstellt eine Aufgabe. Wichtigkeit (1-5) ist optional.\n"
+            "*Bsp: `!neu \"Mathe\" 2025-05-20 14:00 5`*\n\n"
+            "`!liste` (Alias: `!list`)\n"
+            "Zeigt alle deine offenen Aufgaben sortiert nach Wichtigkeit.\n\n"
+            "`!fertig <Nummer>` (Alias: `!done`)\n"
+            "Markiert die Aufgabe als erledigt und löscht sie.\n"
+            "*Bsp: `!fertig 1`*\n\n"
+            "`!löschen <Nummer>` (Alias: `!del`)\n"
+            "Löscht die Aufgabe ohne sie als erledigt zu markieren.\n"
+            "*Bsp: `!löschen 2`*"
+         ),
             inline=False
         )
 
@@ -356,14 +356,14 @@ class Todo(commands.Cog):
         embed.add_field(
             name="⏰ Zeit & Planung",
             value=(
-            "`!time <Nummer>` (oder `!check`)\n"
+            "`!zeit <Nummer>` (Alias: `!time`)\n"
             "Zeigt exakt an, wie viel Zeit für Aufgabe X noch bleibt.\n\n"
-            "`!delay <Nummer> <Zeit>` (oder `!snooze`)\n"
+            "`!verschieben <Nummer> <Zeit>` (Alias: `!delay`)\n"
             "Verschiebt die Deadline um die angegebene Zeit.\n"
             "Nutze: `m` (Min), `h`/`std` (Std), `d`/`t` (Tage).\n"
-            "*Bsp: `!snooze 1 2h` (2 Stunden später)*"
-        ),
-          inline=False
+            "*Bsp: `!verschieben 1 2h` (2 Stunden später)*"
+         ),
+         inline=False
         )
 
         # 3. Extras
@@ -384,8 +384,8 @@ class Todo(commands.Cog):
         
 
     # --- COMMAND: Delete (Löschen) ---
-    @commands.command(aliases=["remove", "löschen"])
-    async def delete(self, ctx, index: int):
+    @commands.command(aliases=["remove", "delete"])
+    async def löschen(self, ctx, index: int):
         
         user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
         user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
