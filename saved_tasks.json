@@ -1,1 +1,11 @@
-[]
+[
+    {
+        "task": "Zahlen und Operationen Multiplikation",
+        "deadline": "2026-01-04T23:59:00",
+        "priority": 5,
+        "user_id": 1206746723641200731,
+        "channel_id": 1457435818460184588,
+        "reminders_sent": [],
+        "id": 2
+    }
+]

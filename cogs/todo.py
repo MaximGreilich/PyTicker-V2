@@ -333,59 +333,46 @@ class Todo(commands.Cog):
             await ctx.send(embed=embed)
             
         # --- COMMAND: Hilfe / Anleitung ---
-    @commands.command(aliases=["guide", "commands"])
+    @commands.command(aliases=["help", "guide", "commands"])
     async def hilfe(self, ctx):
-        """Zeigt eine schöne Übersicht aller Befehle."""
+        """Zeigt die Befehlsübersicht an."""
         
-        embed = discord.Embed(title="🤖 Dein Bot-Handbuch", description="Hier sind alle Befehle, die ich verstehe:", color=discord.Color.gold())
-        
-        # 1. Die Wichtigsten
-        embed.add_field(
-            name="📝 Aufgaben verwalten",
-            value=(
-            "`!neu \"Titel\" <TT.MM.JJJJ HH:MM> [1-5]` (Alias: `!add`)\n"
-            "Erstellt eine Aufgabe. Wichtigkeit (1-5) ist optional.\n"
-            "*Bsp: `!neu \"Mathe\" 20.05.2025 14:00 5`*\n\n"
-            "`!liste` (Alias: `!list`)\n"
-            "Zeigt alle deine offenen Aufgaben sortiert nach Wichtigkeit.\n\n"
-            "`!fertig <Nummer>` (Alias: `!done`)\n"
-            "Markiert die Aufgabe als erledigt und löscht sie.\n"
-            "*Bsp: `!fertig 1`*\n\n"
-            "`!löschen <Nummer>` (Alias: `!del`)\n"
-            "Löscht die Aufgabe ohne sie als erledigt zu markieren.\n"
-            "*Bsp: `!löschen 2`*"
-        ),
-        inline=False
-    )
+        beschreibung = (
+            "**📝 Neue Aufgabe erstellen**\n"
+            "Nutze `!neu` (oder `!add`), den Titel in Anführungszeichen und das Datum.\n"
+            "> Bsp: `!neu \"Mathe lernen\" 20.05.2025 14:00`\n\n"
+            
+            "**📋 Liste anzeigen**\n"
+            "Mit `!liste` (oder `!list`) siehst du alle offenen Aufgaben und wie viel Zeit noch bleibt.\n\n"
+            
+            "**✅ Aufgabe erledigen**\n"
+            "Nutze `!fertig` (oder `!done`) und die Nummer der Aufgabe aus der Liste.\n"
+            "> Bsp: `!fertig 1`\n\n"
+            
+            "**🗑️ Aufgabe löschen**\n"
+            "Wenn du dich vertippt hast: `!löschen` (oder `!del`) entfernt sie, ohne Punkte/Erfolg.\n"
+            "> Bsp: `!löschen 2`\n\n"
+            
+            "**⏰ Zeit verschieben**\n"
+            "Brauchst du mehr Zeit? Nutze `!verschieben` (oder `!delay`).\n"
+            "> Bsp: `!verschieben 1 30m` (30 Min später)\n"
+            "> Bsp: `!verschieben 1 1d` (1 Tag später)\n\n"
+            
+            "**💪 Motivation**\n"
+            "Tippe `!motivation` für einen zufälligen Spruch.\n\n"
 
-        # 2. Zeit & Planung
-        embed.add_field(
-            name="⏰ Zeit & Planung",
-            value=(
-            "`!zeit <Nummer>` (Alias: `!time`)\n"
-            "Zeigt exakt an, wie viel Zeit für Aufgabe X noch bleibt.\n\n"
-            "`!verschieben <Nummer> <Zeit>` (Alias: `!delay`)\n"
-            "Verschiebt die Deadline um die angegebene Zeit.\n"
-            "Nutze: `m` (Min), `h`/`std` (Std), `d`/`t` (Tage).\n"
-            "*Bsp: `!verschieben 1 2h` (2 Stunden später)*"
-         ),
-         inline=False
+            "**❓ Hilfe**\n"
+            "Zeigt diese Übersicht erneut an: `!hilfe` (oder `!help`)"
         )
 
-        # 3. Extras
-        embed.add_field(
-            name="✨ Sonstiges",
-            value=(
-                "`!moti` (oder `!motivation`)\n"
-                "Gibt dir einen zufälligen Motivationsspruch.\n\n"
-                "`!hilfe`\n"
-                "Zeigt diese Nachricht an."
-            ),
-            inline=False
+        embed = discord.Embed(
+            title="📚 Bot-Handbuch",
+            description=beschreibung,
+            color=discord.Color.gold()
         )
         
-        embed.set_footer(text="Tipp: Aufgaben werden automatisch gespeichert! 💾")
-        
+        embed.set_footer(text="Tipp: Datum ist immer Tag.Monat.Jahr")
+
         await ctx.send(embed=embed)
         
 
@@ -468,79 +455,65 @@ class Todo(commands.Cog):
         
     @commands.Cog.listener()
     async def on_guild_join(self, guild):
-        # 1. Den richtigen Kanal finden
-        # Wir versuchen erst den "System-Kanal" (wo Willkommensnachrichten kommen)
+        # 1. Kanal suchen (wie gehabt)
         channel = guild.system_channel
-        
-        # Falls kein System-Kanal da ist, suchen wir den ersten Textkanal, in den der Bot schreiben darf
         if channel is None:
             for c in guild.text_channels:
                 if c.permissions_for(guild.me).send_messages:
                     channel = c
                     break
         
-        # Wenn wir immer noch keinen Kanal haben, brechen wir ab
         if channel is None:
             return
 
-        # 2. Die Begrüßungs-Nachricht (Intro)
+        # 2. Begrüßung (kurz & freundlich)
         intro_text = (
-            f"👋 Hallo zusammen! Ich bin **{self.bot.user.name}**.\n"
-            "Danke, dass ihr mich auf **" + guild.name + "** eingeladen habt!\n\n"
-            "Ich helfe euch dabei, Aufgaben und Deadlines im Blick zu behalten. 🚀\n"
-            "Hier ist eine Übersicht meiner Befehle:"
+            f"👋 Hi! Ich bin **{self.bot.user.name}**.\n"
+            "Ich helfe euch, Deadlines im Blick zu behalten. Hier ist ein schneller Überblick, wie ich funktioniere:"
         )
-        
         await channel.send(intro_text)
 
-        # 3. Das Hilfe-Embed (Kopie von deinem Hilfe-Befehl)
-        # Hier fügen wir das Embed ein, das wir vorhin erstellt haben
+        # 3. Das "Spickzettel"-Embed (Alles in der Description, keine Fields)
+        # Wir nutzen Emojis und Fettgedrucktes für Struktur, aber keine technischen Klammern mehr.
+        
+        beschreibung = (
+            "**📝 Neue Aufgabe erstellen**\n"
+            "Nutze `!neu` (oder `!add`), den Titel in Anführungszeichen und das Datum.\n"
+            "> Bsp: `!neu \"Mathe lernen\" 20.05.2025 14:00`\n\n"
+            
+            "**📋 Liste anzeigen**\n"
+            "Mit `!liste` (oder `!list`) siehst du alle offenen Aufgaben und wie viel Zeit noch bleibt.\n\n"
+            
+            "**✅ Aufgabe erledigen**\n"
+            "Nutze `!fertig` (oder `!done`) und die Nummer der Aufgabe aus der Liste.\n"
+            "> Bsp: `!fertig 1`\n\n"
+            
+            "**🗑️ Aufgabe löschen**\n"
+            "Wenn du dich vertippt hast: `!löschen` (oder `!del`) entfernt sie, ohne Punkte/Erfolg.\n"
+            "> Bsp: `!löschen 2`\n\n"
+            
+            "**⏰ Zeit verschieben**\n"
+            "Brauchst du mehr Zeit? Nutze `!verschieben` (oder `!delay`).\n"
+            "> Bsp: `!verschieben 1 30m` (30 Min später)\n"
+            "> Bsp: `!verschieben 1 1d` (1 Tag später)\n\n"
+            
+            "**💪 Motivation**\n"
+            "Tippe `!motivation` für einen zufälligen Spruch."
+            
+            "**❓ Hilfe & Anleitung**\n"
+            "Zeigt dir diese Übersicht erneut an: `!hilfe` (oder `!help`)"
+        )
+
         embed = discord.Embed(
-            title="🤖 Bot-Handbuch",
-            description="Alle Befehle im Überblick",
-            color=discord.Color.blue()
+            title="🚀 Schnellstart-Guide",
+            description=beschreibung,
+            color=discord.Color.gold() # Gold/Gelb wirkt oft wie ein "Notizzettel"
         )
+        
+        # Ein kleines Footer-Bild oder Text macht es weniger streng
+        embed.set_footer(text="Tipp: Datum ist immer Tag.Monat.Jahr")
 
-        # Abschnitt 1: Aufgaben
-        embed.add_field(
-            name="📝 Aufgaben verwalten",
-            value=(
-                "`!neu \"Titel\" <TT.MM.JJJJ HH:MM> [1-5]` (Alias: `!add`)\n"
-                "Erstellt eine Aufgabe und zeigt die ID an.\n"
-                "*Bsp: `!neu \"Mathe\" 20.05.2025 14:00 5`*\n\n"
-                "`!liste` (Alias: `!list`)\n"
-                "Zeigt alle offenen Aufgaben.\n\n"
-                "`!fertig <Nummer>` (Alias: `!done`)\n"
-                "Markiert Aufgabe als erledigt & löscht sie.\n\n"
-                "`!löschen <Nummer>` (Alias: `!del`)\n"
-                "Löscht die Aufgabe komplett."
-            ),
-            inline=False
-        )
-
-        # Abschnitt 2: Zeit
-        embed.add_field(
-            name="⏰ Zeit & Planung",
-            value=(
-                "`!zeit <Nummer>` (Alias: `!time`)\n"
-                "Zeigt die verbleibende Zeit an.\n\n"
-                "`!verschieben <Nummer> <Zeit>` (Alias: `!delay`)\n"
-                "Verschiebt die Deadline.\n"
-                "*Bsp: `!verschieben 1 2h` (2 Stunden später)*"
-            ),
-            inline=False
-        )
-        # Abschnitt 3: Sonstiges
-        embed.add_field(
-            name="📌 Sonstiges",
-            value=(
-                "`!motivation`\n"
-                "Gibt dir einen Motivationsspruch, wenn du ihn brauchst! 💪\n\n"
-                "`!hilfe` (Alias: `!help`)\n"
-                "Zeigt diese Liste erneut an."
-            ),
-            inline=False
-        )
+        await channel.send(embed=embed)
 
         # Embed senden
         await channel.send(embed=embed)
