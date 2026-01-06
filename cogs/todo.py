@@ -103,18 +103,15 @@ class Todo(commands.Cog):
                 "priority": priority,
                 "user_id": ctx.author.id,
                 "channel_id": ctx.channel.id,
-                "reminders_sent": []
+                
             }
             
 
             self.todos.append(task_entry)
-            
-            #ID generieren
-            neue_id = len(self.todos)
-            task_entry["id"] = neue_id
-            
-           
             self.save_tasks()  # Aufgaben speichern
+            
+            meine_aufgaben = self.get_tasks_for_user(ctx.author.id)
+            meine_nummer = len(meine_aufgaben)
             
 
             prio_emoji = "🔥" * priority
@@ -130,42 +127,38 @@ class Todo(commands.Cog):
             await ctx.send("❌ Was hast du erledigt? Gib eine **Nummer** oder den **Namen** an.")
             return
 
-        # FALL 1: Eingabe ist eine Nummer (z.B. "!fertig 1")
+        meine_aufgaben = self.get_tasks_for_user(ctx.author.id)
+        meine_aufgaben.sort(key=lambda x: (-x["priority"], x["deadline"]))
+        
+        to_remove = None
+        #Fall A: Nummer
         if eingabe.isdigit():
             nummer = int(eingabe)
-            
-            # Wir brauchen die sortierte Liste (genau wie bei !liste), um die richtige Aufgabe zu treffen
-            sortierte_liste = sorted(
-                self.todos, 
-                key=lambda t: t["deadline"] # Oder wonach auch immer du sortierst
-            )
-            
-            if 1 <= nummer <= len(sortierte_liste):
-                zu_loeschende_aufgabe = sortierte_liste[nummer - 1]
-                self.todos.remove(zu_loeschende_aufgabe)
-                self.save_tasks()
-                await ctx.send(f"✅ Stark! Aufgabe **'{zu_loeschende_aufgabe['task']}'** wurde erledigt. 🎉")
+            if 1 <= nummer <= len(meine_aufgaben):
+                to_remove = meine_aufgaben[nummer - 1]
             else:
-                await ctx.send("❌ Diese Nummer gibt es nicht auf der Liste.")
-
-        # FALL 2: Eingabe ist ein Text (z.B. "!fertig Mathe lernen")
+                await ctx.send("❌ Diese Nummer gibt es nicht.")
+                return
+        
+        #Fall B: Name
         else:
-            gefundenes_task = None
-            
-            # Wir suchen in der Liste nach dem Namen
-            for t in self.todos:
-                # .lower() macht den Vergleich unempfindlich gegen Groß-/Kleinschreibung
-                if t["task"].lower() == eingabe.lower():
-                    gefundenes_task = t
-                    break # Wir nehmen den ersten Treffer und hören auf
-            
-            if gefundenes_task:
-                self.todos.remove(gefundenes_task)
+            for task in meine_aufgaben:
+                if task["task"].lower() == eingabe.lower():
+                    to_remove = task
+                    break
+            if to_remove is None:
+                await ctx.send("❌ Diese Aufgabe wurde nicht gefunden.")
+                return
+        if to_remove:
+            if to_remove in self.todos:
+                self.todos.remove(to_remove)
                 self.save_tasks()
-                await ctx.send(f"✅ Stark! Aufgabe **'{gefundenes_task['task']}'** wurde erledigt. 🎉")
+                await ctx.send(f"✅ Aufgabe **'{to_remove['task']}'** als erledigt markiert!")
             else:
-                await ctx.send(f"❌ Ich habe keine Aufgabe mit dem Namen **'{eingabe}'** gefunden.")
-
+                await ctx.send("❌ Aufgabe nicht in der Hauptliste gefunden.")
+        else:
+            await ctx.send("❌ Aufgabe nicht gefunden.")
+            
         # Zufälliges Party-GIF senden
         gif_url = random.choice(self.party_gifs)
         await ctx.send(gif_url)
@@ -173,43 +166,28 @@ class Todo(commands.Cog):
     # --- COMMAND: List (mit Überfällig-Anzeige) ---
     @commands.command(aliases=["list"])
     async def liste(self, ctx):
-        user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
-
-        if not user_tasks:
-            await ctx.send("Alles erledigt! 🏝️")
-            return
-
-        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
-
-        embed = discord.Embed(title="Deine To-Do Liste",
-                              color=discord.Color.blue())
-
-        for i, task in enumerate(user_tasks, 1):
-            now = datetime.now()
-            time_left = task["deadline"] - now
-            fmt_time = task["deadline"].strftime("%d.%m. %H:%M")
-            prio_str = "🔥" * task["priority"]
-
-            # Logik für Text-Anzeige
-            if time_left.total_seconds() < 0:
-                # Vergangenheit
-                past_minutes = int(abs(time_left.total_seconds()) / 60)
-                if past_minutes > 60:
-                    past_hours = past_minutes // 60
-                    time_msg = f"🔴 **ÜBERFÄLLIG seit {past_hours} Stunden!**"
-                else:
-                    time_msg = f"🔴 **ÜBERFÄLLIG seit {past_minutes} Minuten!**"
-            else:
-                # Zukunft
-                hours_left = int(time_left.total_seconds() / 3600)
-                time_msg = f"Zeit übrig: {hours_left}h ({fmt_time})"
-
-            value_text = f"{time_msg}\n**Prio:** {prio_str}"
-            embed.add_field(
-                name=f"{i}. {task['task']}", value=value_text, inline=False)
-
-        await ctx.send(embed=embed)
+        #Aufgaben des Users filtern
+        meine_aufgaben = [t for t in self.todos if t["user_id"] == ctx.author.id]
         
+        if not meine_aufgaben:
+            await ctx.send("✅ Du hast keine offenen Aufgaben! Gut gemacht! 🎉")
+            return
+        
+        # Aufgaben sortieren (z.B. nach Deadline und Priorität)
+        meine_aufgaben.sort(key=lambda x: (-x["priority"], x["deadline"]))
+        embed = discord.Embed(title=f"📝 Aufgabenliste für {ctx.author.name}", color=discord.Color.blue())
+        
+        text = ""
+        #enumerate für Nummerierung
+        for index, task in enumerate(meine_aufgaben, start=1):
+            zeit_str= task["deadline"].strftime("%d.%m.%Y %H:%M")
+            prio = "🔥" * task["priority"]
+            
+            #String bauen
+            text += f"**{index}.** {task['task']} (bis {zeit_str}) {prio}\n"
+        embed.description = text
+        await ctx.send(embed=embed)
+            
 # --- COMMAND: Motivation ---
 
     @commands.command(aliases=["moti"])  # Reagiert auf !motivation und !moti
@@ -411,26 +389,39 @@ class Todo(commands.Cog):
     # --- COMMAND: Delete (Löschen) ---
     @commands.command(aliases=["del", "remove"])
     async def loeschen(self, ctx, nummer: int):
-        # 1. Liste genau so sortieren wie beim !liste Befehl
-        # Hier im Beispiel: Erst nach Zeit (deadline), dann nach Prio
-        sortierte_liste = sorted(
-            self.todos, 
-            key=lambda t: t["deadline"]
-        )
+        """Löscht eine Aufgabe anhand ihrer Nummer in DEINER Liste."""
+        
+        # 1. Wir holen nur DEINE Aufgaben
+        meine_aufgaben = self.get_user_tasks(ctx.author.id)
+        
+        # 2. Wenn du gar keine Aufgaben hast, können wir nichts löschen
+        if not meine_aufgaben:
+            await ctx.send("❌ Du hast gar keine Aufgaben, die du löschen könntest.")
+            return
 
-        # 2. Prüfen, ob die Nummer existiert
-        if 1 <= nummer <= len(sortierte_liste):
-            # Der User sieht "1", aber Python zählt ab 0 -> daher "nummer - 1"
-            zu_loeschende_aufgabe = sortierte_liste[nummer - 1]
+        # 3. WICHTIG: Sortieren! (Muss exakt gleich sein wie bei !liste)
+        # Wir sortieren nach Deadline, damit "Nummer 1" auch wirklich die erste Aufgabe ist
+        meine_aufgaben.sort(key=lambda t: t["deadline"])
+
+        # 4. Prüfen, ob die Nummer gültig ist
+        # (User tippt 1, Python zählt ab 0 -> daher "nummer - 1")
+        if 1 <= nummer <= len(meine_aufgaben):
             
-            # 3. Das richtige Element aus der ECHTEN Liste entfernen
-            # .remove() sucht genau dieses eine Paket und löscht es, egal welche ID es hat
-            self.todos.remove(zu_loeschende_aufgabe)
-            self.save_tasks()
+            # Das ist das Objekt, das der User meint:
+            zu_loeschende_aufgabe = meine_aufgaben[nummer - 1]
             
-            await ctx.send(f"🗑️ Aufgabe **'{zu_loeschende_aufgabe['task']}'** gelöscht.")
+            # 5. Jetzt löschen wir dieses Objekt aus der GLOBALEN Liste (self.todos)
+            if zu_loeschende_aufgabe in self.todos:
+                self.todos.remove(zu_loeschende_aufgabe)
+                self.save_tasks() # Speichern nicht vergessen!
+                
+                await ctx.send(f"🗑️ Aufgabe **'{zu_loeschende_aufgabe['task']}'** wurde gelöscht.")
+            else:
+                # Das sollte eigentlich nie passieren, außer die DB ist korrupt
+                await ctx.send("❌ Fehler: Konnte die Aufgabe in der Datenbank nicht finden.")
+                
         else:
-            await ctx.send("❌ Diese Nummer gibt es nicht.")
+            await ctx.send(f"❌ Ungültige Nummer. Du hast nur **{len(meine_aufgaben)}** Aufgaben.")
     # --- HINTERGRUND LOGIK ---
     @tasks.loop(seconds=10)
     async def check_deadlines(self):
@@ -546,6 +537,12 @@ class Todo(commands.Cog):
 
         # Embed senden
         await channel.send(embed=embed)
+        
+    #--- HILFSFUNKTIONEN ---
+    
+    #Methode um Aufgaben eines Users zu bekommen
+    def get_tasks_for_user(self, user_id):
+        return [t for t in self.todos if t["user_id"] == user_id]
 
 
 async def setup(bot):
