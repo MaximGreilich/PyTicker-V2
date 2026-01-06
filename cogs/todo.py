@@ -75,10 +75,16 @@ class Todo(commands.Cog):
     # --- COMMAND: Add ---
 
     @commands.command(aliases=["add"])
-    async def neu(self, ctx, task_name: str, date_str: str, time_str: str, priority: int = 3, neue_id: int = None):
+    async def neu(self, ctx, task_name: str = None, date_str: str = None, time_str: str = None, priority: int = 3, neue_id: int = None):
         if priority < 1 or priority > 5:
             await ctx.send("❌ Wichtigkeit muss zwischen 1 und 5 liegen.")
             return
+        
+        if task_name is None or date_str is None or time_str is None:
+            await ctx.send("❌ Fehlende Argumente! Nutze: `!add \"Name\" DD.MM.YYYY HH:MM 1-5`")
+            return
+
+         # Datum und Zeit parsen
 
         try:
             deadline_str = f"{date_str} {time_str}"
@@ -87,6 +93,9 @@ class Todo(commands.Cog):
             # Hinweis, falls man aus Versehen eine Vergangenheit wählt
             if deadline_dt < datetime.now():
                 await ctx.send("⚠️ Info: Diese Deadline liegt in der Vergangenheit.")
+                
+                        # Error handling für Aufgabennamen
+        
 
             task_entry = {
                 "task": task_name,
@@ -96,6 +105,7 @@ class Todo(commands.Cog):
                 "channel_id": ctx.channel.id,
                 "reminders_sent": []
             }
+            
 
             self.todos.append(task_entry)
             
@@ -115,23 +125,46 @@ class Todo(commands.Cog):
 
     # --- COMMAND: Done ---
     @commands.command(aliases=["done"])
-    async def fertig(self, ctx, index: int):
-        user_tasks = [t for t in self.todos if t["user_id"] == ctx.author.id]
-        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
-
-        # Gleiche Sortierung wie bei 'list', damit die Nummer stimmt
-        user_tasks.sort(key=lambda x: (-x["priority"], x["deadline"]))
-
-        if index < 1 or index > len(user_tasks):
-            await ctx.send("❌ Ungültige Nummer. Schau erst mit `!list` nach.")
+    async def fertig(self, ctx, * , eingabe: str = None):
+        if eingabe is None:
+            await ctx.send("❌ Was hast du erledigt? Gib eine **Nummer** oder den **Namen** an.")
             return
 
-        # Aufgabe finden und aus der großen Liste löschen
-        task_to_remove = user_tasks[index - 1]
-        self.todos.remove(task_to_remove)
-        self.save_tasks()  # Aufgaben speichern
+        # FALL 1: Eingabe ist eine Nummer (z.B. "!fertig 1")
+        if eingabe.isdigit():
+            nummer = int(eingabe)
+            
+            # Wir brauchen die sortierte Liste (genau wie bei !liste), um die richtige Aufgabe zu treffen
+            sortierte_liste = sorted(
+                self.todos, 
+                key=lambda t: t["deadline"] # Oder wonach auch immer du sortierst
+            )
+            
+            if 1 <= nummer <= len(sortierte_liste):
+                zu_loeschende_aufgabe = sortierte_liste[nummer - 1]
+                self.todos.remove(zu_loeschende_aufgabe)
+                self.save_tasks()
+                await ctx.send(f"✅ Stark! Aufgabe **'{zu_loeschende_aufgabe['task']}'** wurde erledigt. 🎉")
+            else:
+                await ctx.send("❌ Diese Nummer gibt es nicht auf der Liste.")
 
-        await ctx.send(f"🗑️ Aufgabe **'{task_to_remove['task']}'** wurde erledigt/gelöscht.")
+        # FALL 2: Eingabe ist ein Text (z.B. "!fertig Mathe lernen")
+        else:
+            gefundenes_task = None
+            
+            # Wir suchen in der Liste nach dem Namen
+            for t in self.todos:
+                # .lower() macht den Vergleich unempfindlich gegen Groß-/Kleinschreibung
+                if t["task"].lower() == eingabe.lower():
+                    gefundenes_task = t
+                    break # Wir nehmen den ersten Treffer und hören auf
+            
+            if gefundenes_task:
+                self.todos.remove(gefundenes_task)
+                self.save_tasks()
+                await ctx.send(f"✅ Stark! Aufgabe **'{gefundenes_task['task']}'** wurde erledigt. 🎉")
+            else:
+                await ctx.send(f"❌ Ich habe keine Aufgabe mit dem Namen **'{eingabe}'** gefunden.")
 
         # Zufälliges Party-GIF senden
         gif_url = random.choice(self.party_gifs)
@@ -205,7 +238,7 @@ class Todo(commands.Cog):
 
  # --- COMMAND: Smart Snooze (Umbenannt zum Testen) ---
     @commands.command(aliases=["snooze", "delay"])
-    async def verschieben(self, ctx, index: int, *, time_input: str): # <--- HIER UMBENENNEN
+    async def verschieben(self, ctx, index: int, *, time_input: str): 
         
         """""
         Verschiebt eine Deadline.
@@ -228,8 +261,7 @@ class Todo(commands.Cog):
         hours = 0
         minutes = 0
 
-        # Regex: Suche nach Zahl gefolgt von Buchstaben
-        # Wir erlauben jetzt auch 't' (Tage), 's'/'std' (Stunden)
+       #  Regulären Ausdruck nutzen, um Zahlen + Einheiten zu finden
         matches = re.findall(r"(\d+)([a-z]+)", clean_input)
 
         if not matches:
@@ -349,9 +381,9 @@ class Todo(commands.Cog):
             "Nutze `!fertig` (oder `!done`) und die Nummer der Aufgabe aus der Liste.\n"
             "> Bsp: `!fertig 1`\n\n"
             
-            "**🗑️ Aufgabe löschen**\n"
-            "Wenn du dich vertippt hast: `!löschen` (oder `!del`) entfernt sie, ohne Punkte/Erfolg.\n"
-            "> Bsp: `!löschen 2`\n\n"
+            "**🗑️ Aufgabe loeschen**\n"
+            "Wenn du dich vertippt hast: `!loeschen` (oder `!del`) entfernt sie, ohne Punkte/Erfolg.\n"
+            "> Bsp: `!loeschen 2`\n\n"
             
             "**⏰ Zeit verschieben**\n"
             "Brauchst du mehr Zeit? Nutze `!verschieben` (oder `!delay`).\n"
@@ -362,7 +394,7 @@ class Todo(commands.Cog):
             "Tippe `!motivation` für einen zufälligen Spruch.\n\n"
 
             "**❓ Hilfe**\n"
-            "Zeigt diese Übersicht erneut an: `!hilfe` (oder `!help`)"
+            "Zeigt diese Übersicht erneut an: `!hilfe`"
         )
 
         embed = discord.Embed(
@@ -378,7 +410,7 @@ class Todo(commands.Cog):
 
     # --- COMMAND: Delete (Löschen) ---
     @commands.command(aliases=["del", "remove"])
-    async def löschen(self, ctx, nummer: int):
+    async def loeschen(self, ctx, nummer: int):
         # 1. Liste genau so sortieren wie beim !liste Befehl
         # Hier im Beispiel: Erst nach Zeit (deadline), dann nach Prio
         sortierte_liste = sorted(
@@ -473,8 +505,7 @@ class Todo(commands.Cog):
         )
         await channel.send(intro_text)
 
-        # 3. Das "Spickzettel"-Embed (Alles in der Description, keine Fields)
-        # Wir nutzen Emojis und Fettgedrucktes für Struktur, aber keine technischen Klammern mehr.
+        # 3. Schnellstart-Guide als Embed
         
         beschreibung = (
             "**📝 Neue Aufgabe erstellen**\n"
@@ -488,9 +519,9 @@ class Todo(commands.Cog):
             "Nutze `!fertig` (oder `!done`) und die Nummer der Aufgabe aus der Liste.\n"
             "> Bsp: `!fertig 1`\n\n"
             
-            "**🗑️ Aufgabe löschen**\n"
-            "Wenn du dich vertippt hast: `!löschen` (oder `!del`) entfernt sie, ohne Punkte/Erfolg.\n"
-            "> Bsp: `!löschen 2`\n\n"
+            "**🗑️ Aufgabe loeschen**\n"
+            "Wenn du dich vertippt hast: `!loeschen` (oder `!del`) entfernt sie, ohne Punkte/Erfolg.\n"
+            "> Bsp: `!loeschen 2`\n\n"
             
             "**⏰ Zeit verschieben**\n"
             "Brauchst du mehr Zeit? Nutze `!verschieben` (oder `!delay`).\n"
@@ -507,13 +538,11 @@ class Todo(commands.Cog):
         embed = discord.Embed(
             title="🚀 Schnellstart-Guide",
             description=beschreibung,
-            color=discord.Color.gold() # Gold/Gelb wirkt oft wie ein "Notizzettel"
+            color=discord.Color.gold() 
         )
         
-        # Ein kleines Footer-Bild oder Text macht es weniger streng
+        # Fußzeile mit Datumshinweis
         embed.set_footer(text="Tipp: Datum ist immer Tag.Monat.Jahr")
-
-        await channel.send(embed=embed)
 
         # Embed senden
         await channel.send(embed=embed)
