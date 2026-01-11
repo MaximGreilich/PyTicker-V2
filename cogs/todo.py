@@ -129,7 +129,10 @@ class Todo(commands.Cog):
 
                 # 6. User-ID berechnen (für die Anzeige)
                 meine_aufgaben = [t for t in self.todos if t["user_id"] == ctx.author.id]
-                meine_nummer = len(meine_aufgaben)
+
+                meine_aufgaben.sort(key=lambda t: (-t["priority"], t["deadline"]))
+
+                meine_nummer = meine_aufgaben.index(task_entry) + 1
 
                 prio_emoji = "🔥" * priority
                 await ctx.send(f"✅ Aufgabe **'{task_name}'** gespeichert! (Nr. **{meine_nummer}** | Prio {priority} {prio_emoji})")
@@ -191,25 +194,34 @@ class Todo(commands.Cog):
     # --- COMMAND: List (mit Überfällig-Anzeige) ---
     @commands.command(aliases=["list"])
     async def liste(self, ctx):
-        #Aufgaben des Users filtern
-        meine_aufgaben = [t for t in self.todos if t["user_id"] == ctx.author.id]
+        # Wir nutzen auch hier die sichere Hilfsfunktion
+        meine_aufgaben = self.get_tasks_for_user(ctx.author.id)
         
         if not meine_aufgaben:
-            await ctx.send("✅ Du hast keine offenen Aufgaben! Gut gemacht! 🎉")
+            await ctx.send("🎉 Du hast keine offenen Aufgaben!")
             return
         
-        # Aufgaben sortieren (z.B. nach Deadline und Priorität)
+        # Sortieren: Wichtigkeit zuerst, dann Deadline
         meine_aufgaben.sort(key=lambda x: (-x["priority"], x["deadline"]))
+        
         embed = discord.Embed(title=f"📝 Aufgabenliste für {ctx.author.name}", color=discord.Color.blue())
         
         text = ""
-        #enumerate für Nummerierung
+        now = datetime.now() # Aktuelle Zeit für den Vergleich
+
         for index, task in enumerate(meine_aufgaben, start=1):
-            zeit_str= task["deadline"].strftime("%d.%m.%Y %H:%M")
+            zeit_str = task["deadline"].strftime("%d.%m. %H:%M")
             prio = "🔥" * task["priority"]
             
-            #String bauen
-            text += f"**{index}.** {task['task']} (bis {zeit_str}) {prio}\n"
+            # CHECK: Ist die Zeit abgelaufen?
+            if task["deadline"] < now:
+                # Text fett und rot markieren
+                zustand = f"🔴 **ÜBERFÄLLIG!** (war: {zeit_str})"
+            else:
+                zustand = f"(bis {zeit_str})"
+
+            text += f"**{index}.** {task['task']} {zustand} {prio}\n"
+
         embed.description = text
         await ctx.send(embed=embed)
             
@@ -413,38 +425,32 @@ class Todo(commands.Cog):
 
     # --- COMMAND: Delete (Löschen) ---
     @commands.command(aliases=["del", "remove"])
-    async def loeschen(self, ctx, nummer: int):
+    async def loeschen(self, ctx, nummer: int = None):
         """Löscht eine Aufgabe anhand ihrer Nummer in DEINER Liste."""
         
-        # 1. Wir holen nur DEINE Aufgaben
-        meine_aufgaben = self.get_user_tasks(ctx.author.id)
-        
-        # 2. Wenn du gar keine Aufgaben hast, können wir nichts löschen
-        if not meine_aufgaben:
-            await ctx.send("❌ Du hast gar keine Aufgaben, die du löschen könntest.")
+        if nummer is None:
+            await ctx.send("❌ Welche Nummer soll ich löschen? Bsp: `!del 1`")
             return
 
-        # 3. WICHTIG: Sortieren! (Muss exakt gleich sein wie bei !liste)
-        # Wir sortieren nach Deadline, damit "Nummer 1" auch wirklich die erste Aufgabe ist
-        meine_aufgaben.sort(key=lambda t: t["deadline"])
+        # HIER WAR DER FEHLER: Es muss "get_tasks_for_user" heißen!
+        meine_aufgaben = self.get_tasks_for_user(ctx.author.id)
+        
+        if not meine_aufgaben:
+            await ctx.send("❌ Du hast gar keine Aufgaben.")
+            return
 
-        # 4. Prüfen, ob die Nummer gültig ist
-        # (User tippt 1, Python zählt ab 0 -> daher "nummer - 1")
+        # Sortierung muss gleich sein wie bei !liste
+        meine_aufgaben.sort(key=lambda x: (-x["priority"], x["deadline"]))
+
         if 1 <= nummer <= len(meine_aufgaben):
-            
-            # Das ist das Objekt, das der User meint:
             zu_loeschende_aufgabe = meine_aufgaben[nummer - 1]
             
-            # 5. Jetzt löschen wir dieses Objekt aus der GLOBALEN Liste (self.todos)
             if zu_loeschende_aufgabe in self.todos:
                 self.todos.remove(zu_loeschende_aufgabe)
-                self.save_tasks() # Speichern nicht vergessen!
-                
+                self.save_tasks() 
                 await ctx.send(f"🗑️ Aufgabe **'{zu_loeschende_aufgabe['task']}'** wurde gelöscht.")
             else:
-                # Das sollte eigentlich nie passieren, außer die DB ist korrupt
-                await ctx.send("❌ Fehler: Konnte die Aufgabe in der Datenbank nicht finden.")
-                
+                await ctx.send("❌ Fehler: Aufgabe in der Datenbank nicht gefunden.")     
         else:
             await ctx.send(f"❌ Ungültige Nummer. Du hast nur **{len(meine_aufgaben)}** Aufgaben.")
     # --- HINTERGRUND LOGIK ---

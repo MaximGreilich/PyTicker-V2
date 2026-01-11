@@ -9,13 +9,6 @@
         "id": 2
     },
     {
-        "task": "Mail",
-        "deadline": "2026-01-09T20:00:00",
-        "priority": 4,
-        "user_id": 401087629241745409,
-        "channel_id": 1450439680968495167
-    },
-    {
         "task": "Mathe lernen",
         "deadline": "2026-01-12T16:00:00",
         "priority": 5,
