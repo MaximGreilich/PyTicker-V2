@@ -75,50 +75,75 @@ class Todo(commands.Cog):
     # --- COMMAND: Add ---
 
     @commands.command(aliases=["add"])
-    async def neu(self, ctx, task_name: str = None, date_str: str = None, time_str: str = None, priority: int = 3, neue_id: int = None):
-        if priority < 1 or priority > 5:
-            await ctx.send("❌ Wichtigkeit muss zwischen 1 und 5 liegen.")
+    async def neu(self, ctx, *, alles_zusammen: str = None):
+            
+
+        # 1. Hat der User überhaupt was geschrieben?
+        if alles_zusammen is None:
+            await ctx.send("❌ Du hast nichts eingegeben!\n👉 Bsp: `!neu Mathe lernen 20.05.2025 14:00`")
             return
         
-        if task_name is None or date_str is None or time_str is None:
-            await ctx.send("❌ Fehlende Argumente! Nutze: `!add \"Name\" DD.MM.YYYY HH:MM 1-5`")
-            return
+        # 2. Regex für das Parsen
+        # Muster: (Aufgabenname) (Datum) (Uhrzeit) [Prio]
+        # Beispiel: "Mathe lernen 20.05.2025 14:00
+        muster = r"(.+?)\s+(\d{1,2}\.\d{1,2}\.\d{4})\s+(\d{1,2}:\d{2})(?:\s+(\d))?"
+        match = re.search(muster, alles_zusammen)
 
-         # Datum und Zeit parsen
+        if match:
+            # Treffer! Daten auslesen
+            task_name = match.group(1)
+            date_str = match.group(2)
+            time_str = match.group(3)
+            prio_str = match.group(4) # Das ist noch ein String oder None
 
-        try:
-            deadline_str = f"{date_str} {time_str}"
-            deadline_dt = datetime.strptime(deadline_str, "%d.%m.%Y %H:%M")
+            # 3. Priorität in Zahl umwandeln (Default: 3)
+            if prio_str:
+                priority = int(prio_str)
+            else:
+                priority = 3 # Standardwert, wenn nichts angegeben
 
-            # Hinweis, falls man aus Versehen eine Vergangenheit wählt
-            if deadline_dt < datetime.now():
-                await ctx.send("⚠️ Info: Diese Deadline liegt in der Vergangenheit.")
-                
-                        # Error handling für Aufgabennamen
-        
+            #Errorhandling für Priorität
+            if priority < 1 or priority > 5:
+                await ctx.send("❌ Wichtigkeit muss zwischen 1 und 5 liegen.")
+                return
 
-            task_entry = {
-                "task": task_name,
-                "deadline": deadline_dt,
-                "priority": priority,
-                "user_id": ctx.author.id,
-                "channel_id": ctx.channel.id,
-                
-            }
-            
+            # 4. Datum verarbeiten
+            try:
+                deadline_str = f"{date_str} {time_str}"
+                deadline_dt = datetime.strptime(deadline_str, "%d.%m.%Y %H:%M")
 
-            self.todos.append(task_entry)
-            self.save_tasks()  # Aufgaben speichern
-            
-            meine_aufgaben = self.get_tasks_for_user(ctx.author.id)
-            meine_nummer = len(meine_aufgaben)
-            
+                if deadline_dt < datetime.now():
+                    await ctx.send("⚠️ Info: Diese Deadline liegt in der Vergangenheit.")
 
-            prio_emoji = "🔥" * priority
-            await ctx.send(f"✅ Aufgabe **'{task_name}'** gespeichert! (Prio {priority} {prio_emoji}) (ID: {neue_id})")
+                # 5. Speichern
+                task_entry = {
+                    "task": task_name,
+                    "deadline": deadline_dt,
+                    "priority": priority,
+                    "user_id": ctx.author.id,
+                    "channel_id": ctx.channel.id
+                }
 
-        except ValueError:
-            await ctx.send("❌ Formatfehler! Nutze: `!add \"Name\" DD.MM.YYYY HH:MM 1-5`")
+                self.todos.append(task_entry)
+                self.save_tasks()
+
+                # 6. User-ID berechnen (für die Anzeige)
+                meine_aufgaben = [t for t in self.todos if t["user_id"] == ctx.author.id]
+                meine_nummer = len(meine_aufgaben)
+
+                prio_emoji = "🔥" * priority
+                await ctx.send(f"✅ Aufgabe **'{task_name}'** gespeichert! (Nr. **{meine_nummer}** | Prio {priority} {prio_emoji})")
+
+            except ValueError:
+                await ctx.send("❌ Das Datum existiert nicht (z.B. Monat > 12 oder Tippfehler).")
+
+        else:
+            # Kein Treffer beim Regex -> Format falsch
+            await ctx.send(
+                "❌ Format nicht erkannt.\n"
+                "Bitte schreibe: `Titel Datum Uhrzeit [Prio]`\n"
+                "👉 Bsp: `!neu Mathe lernen 20.05.2025 14:00 5`"
+            )
 
     # --- COMMAND: Done ---
     @commands.command(aliases=["done"])
